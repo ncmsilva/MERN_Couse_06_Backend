@@ -1,25 +1,13 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import bodyParser from 'body-parser';
-import StudentRouter from './routers/studenRouter.js';
 import userRouter from './routers/userRouter.js';
+import productRouter from './routers/productRouter.js';
 import jwt from 'jsonwebtoken';
 
 const app = express();
 app.use(bodyParser.json());
-const conStrt = "mongodb+srv://mern:Mern123@cluster0.psjxyb0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-
-
-mongoose.connect(conStrt).then(
-  () => {
-    console.log('MongoDB connected')
-  }
-).catch(
-  (err) => {
-    console.log('MongoDB connection error: ', err)
-  }
-);
 
 app.use((req, res, next) => {
   console.log('Request received for : ', req.url);
@@ -43,9 +31,19 @@ app.use((req, res, next) => {
   }
 });
 
-app.use("/student", StudentRouter);
-app.use("/user", userRouter);
+const conStrt = "mongodb+srv://mern:Mern123@cluster0.psjxyb0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+mongoose.connect(conStrt).then(
+  () => {
+    console.log('MongoDB connected')
+  }
+).catch(
+  (err) => {
+    console.log('MongoDB connection error: ', err)
+  }
+);
 
+app.use("/api/user", userRouter);
+app.use("/api/product", productRouter);
 
 
 app.listen(5005, () => {

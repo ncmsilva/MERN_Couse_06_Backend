@@ -86,3 +86,12 @@ export function login(req, res)
             });
         });
 }
+
+export function isAdmin(req) 
+{
+    if (req.user == null || req.user.role !== 'admin') {
+        return false;
+    } else {
+        return true;
+    }
+}
