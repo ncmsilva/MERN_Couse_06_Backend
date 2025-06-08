@@ -42,8 +42,8 @@ mongoose.connect(conStrt).then(
   }
 );
 
-app.use("/api/user", userRouter);
-app.use("/api/product", productRouter);
+app.use("/api/v1/user", userRouter);
+app.use("/api/v1/product", productRouter);
 
 
 app.listen(5005, () => {
