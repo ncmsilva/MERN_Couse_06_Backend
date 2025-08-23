@@ -1,6 +1,6 @@
 import e from 'express';
-import Product from '../models/Product.js';
 import { isAdmin } from './userController.js';
+import Product from '../models/product.js';
 
 export async function createProduct(req, res) {
 
@@ -26,6 +26,7 @@ export async function getAllProducts(req, res) {
             res.status(200).json(products);
         }
         else {
+            console.log("Fetching available products for non-admin user");
             const products = await Product.find({ isAvailable: true });
             res.status(200).json(products);
         }
