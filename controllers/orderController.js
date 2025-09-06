@@ -122,3 +122,49 @@ export async function getOrders(req, res)
         res.status(500).json({ error: "Failed to fetch orders" });
     }
 }
+export async function getOrdersWithPagination(req, res) 
+{
+    try 
+    {
+        const page = parseInt(req.params.page) || 1
+        const limit = parseInt(req.params.limit) || 10
+
+        console.log("Page : ", page, " limit : ", limit)
+
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view orders." });
+        }
+        if(isAdmin(req)) {
+            const ordercount = await Order.countDocuments();
+            const totalPages = Math.ceil(ordercount/limit)
+            const orders = await Order.find().skip((page-1)*limit).sort({ date: -1 }).limit(limit);
+            return res.status(200).json(
+                {
+                    orders : orders,
+                    totalpages : totalPages
+                }
+            );
+        }
+        else
+        {
+            const ordercount = await Order.countDocuments();
+            const totalPages = Math.ceil(ordercount/limit)
+            const orders = await Order.find({ email: req.user.email }).skip((page-1)*limit).sort({ date: -1 }).limit(limit);
+            return res.status(200).json(
+                {
+                    orders : orders,
+                    totalpages : totalPages
+                }
+            );
+        }
+    }
+    catch (error) 
+    {
+        console.error("Error fetching orders: ", error);
+        res.status(500).json({ error: "Failed to fetch orders" });
+    }
+}
+export async function updateOrder()
+{
+    
+}

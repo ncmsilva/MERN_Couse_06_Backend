@@ -102,3 +102,33 @@ export async function getProductById(req, res) {
         console.log("Error fetching product: ", error);
     }
 }
+
+export async function searchProducts(req, res) {
+    const query = req.params.query;
+    try 
+    {
+        const products = await Product.find(
+            { 
+                $and: 
+                [   
+                    {
+                        $or: 
+                            [
+                                { name: { $regex: query, $options: "i" } },
+                                { altName: { $elemMatch: { $regex: query, $options: "i" } } }                            
+                            ]
+                    },
+                    { isAvailable: true }
+                ]
+            });           
+        if (products) {
+            res.status(200).json(products);
+        } else {
+            res.status(404).json({ error: "Products not found" });
+        }
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch product" });
+        console.log("Error fetching product: ", error);
+    }
+}

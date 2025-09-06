@@ -4,6 +4,26 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import dotenv from 'dotenv';
 import axios from "axios";
+import nodemailer from "nodemailer";
+import Otp from "../models/otp.js";
+dotenv.config();
+
+const smtpHost = process.env.EMAIL_SERVICE;
+const smtpPort = process.env.SMTP_PORT;
+const emailUser = process.env.EMAIL_ID;
+const emailPass = process.env.GMAIL_CODE;
+
+const transporter = nodemailer.createTransport(
+        {
+            service: smtpHost,
+            port: smtpPort,
+            secure: false,
+            auth: 
+            {
+                user: emailUser,
+                pass: emailPass
+            }
+        });
 
 export function createUser(req, res) 
 {
@@ -102,8 +122,10 @@ export function login(req, res)
 export function isAdmin(req) 
 {
     if (req.user == null || req.user.role !== 'admin') {
+        console.log("User is not Admin")
         return false;
     } else {
+        console.log("User is Admin")
         return true;
     }
 }
@@ -220,4 +242,138 @@ export async function googleLogin(req, res)
         console.error("Error during Google login:", error);
         return res.status(500).json({ message: "Failed to authenticate user with Google" });
     }    
+}
+
+export async function sendOtp(req, res) 
+{
+    try 
+    {
+        console.log("SMTP Host: ", smtpHost);
+        console.log("SMTP Port: ", smtpPort);   
+        console.log("Email User: ", emailUser);
+        console.log("Email Pass: ", emailPass);
+        
+        const email = req.body.email;
+        console.log("Request Body Email: ", email);
+        if (email) 
+        {     
+            const user = await User.findOne({ email: email }); //check if the email exists in the database
+            console.log("User Found: ", user);
+            if (!user) {
+                return res.status(404).json({ message: "User with this email does not exist" }); // If user not found, return 404
+            }
+
+            await Otp.deleteMany({ email: email }); // Delete any existing OTPs for this email
+
+            const otp = Math.floor(100000 + Math.random() * 900000).toString(); //generate a 6-digit OTP
+
+            const newOtp = new Otp({ email: email, otp: otp }); // Save the OTP to the database
+            newOtp.save();
+
+            const message = {
+                from: process.env.EMAIL_ID,
+                to: email,
+                subject: "Password reset OTP Code",
+                text: `Your OTP code is ${otp}. It is valid for 5 minutes.`
+            }
+
+            console.log("transporter : ", transporter);
+            console.log("Sending OTP email: ", message);
+
+            await transporter.sendMail(message); // Send the OTP via email
+
+
+            console.log(`Sent OTP ${otp} to email ${email}`);
+            res.status(200).json({ message: "OTP sent to email" });
+
+        }
+    } 
+    catch (error) 
+    {
+        console.error("Error sending OTP:", error);
+        res.status(500).json({ message: "Failed to send OTP" });
+    }
+}
+
+export async function verifyOtp(req, res) 
+{
+    try 
+    {
+        const email = req.body.email;
+        const otp = req.body.otp;
+
+        if (!email || !otp) 
+        {
+            return res.status(400).json({ message: "Email and OTP are required" });
+        }
+
+        const otpRecord = await Otp.findOne({ email: email, otp: otp, verified: false });
+
+        if (!otpRecord) 
+        {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        const curdatetime = new Date();
+        console.log("OTP Record expired at ", otpRecord.expiresAt, "<  Current time: ", curdatetime.toISOString());
+        if(otpRecord.expiresAt < curdatetime)
+        {
+            await Otp.deleteMany({ email: email }); // Delete expired OTPs            
+            return res.status(400).json({ message: "OTP has been expired." });
+        }
+        else
+        {
+            await Otp.updateOne({ _id: otpRecord._id }, { $set: { verified: true } });               
+            res.status(200).json(
+                { 
+                    message: "OTP verified successfully",
+                    email: email
+                });
+                //await Otp.deleteMany({ email: email }); // OTP is valid, delete it
+        }        
+    } 
+    catch (error) 
+    {
+        console.error("Error verifying OTP:", error);
+        res.status(500).json({ message: "Failed to verify OTP" });
+    }
+}
+
+export async function updatePassword(req, res){
+    try
+    {
+        const email = req.body.email;
+        const password = req.body.password;
+        const otp = req.body.otp;
+
+        if (!email || !otp || !password) 
+        {
+            return res.status(400).json({ message: "Email and Password are required" });
+        }
+        const otpRecord = await Otp.findOne({ email: email, otp: otp, verified: true });
+        if (!otpRecord) 
+        {
+            return res.status(400).json({ message: "Invalid request or failled verified OTP successfuly." });
+        }
+
+        const user = await User.findOne({ email: email }); //check if the email exists in the database
+        console.log("User Found: ", user);
+        if (!user) {
+            return res.status(404).json({ message: "User with this email does not exist" }); // If user not found, return 404
+        }
+
+        const saltText = crypto.randomBytes(10).toString("hex");
+        const passwordwithsalt = password + saltText;
+        const passwordhash = bcrypt.hashSync(passwordwithsalt, 12);
+   
+        const us = await User.updateOne({ _id: user._id }, { $set: { password: passwordhash, salt: saltText }});
+        console.log("Password update result: ", us);
+        await Otp.deleteMany({ email: email }); // OTP is valid, delete it
+        res.status(200).json({ message: "Password updated successfully" });
+    }
+    catch(error)
+    {
+        console.error("Error updating password :", error);
+        res.status(500).json({ message: "Failed to update password"});
+    }
 }
