@@ -484,6 +484,7 @@ export async function updateuser(req, res)
     } 
     catch (error) 
     {
-        
+        console.error("Error updateing user: ", error);
+        res.status(500).json({ error: "Failed to update user" });
     }
 }
