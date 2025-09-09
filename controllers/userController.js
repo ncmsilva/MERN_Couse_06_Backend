@@ -377,3 +377,113 @@ export async function updatePassword(req, res){
         res.status(500).json({ message: "Failed to update password"});
     }
 }
+export async function getUsersWithPagination(req, res)
+{
+    try 
+    {
+        const page = parseInt(req.params.page) || 1
+        const limit = parseInt(req.params.limit) || 10
+
+        console.log("Page : ", page, " limit : ", limit)
+
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view users." });
+        }
+        if(isAdmin(req)) {
+            const usercount = await User.countDocuments();
+            const totalPages = Math.ceil(usercount/limit)
+            const users = await User.find().skip((page-1)*limit).sort({ date: -1 }).limit(limit);
+            return res.status(200).json(
+                {
+                    users : users,
+                    totalpages : totalPages
+                }
+            );
+        }
+        else
+        {
+            const usercount = await User.countDocuments();
+            const totalPages = Math.ceil(usercount/limit)
+            const orders = await Order.find({ email: req.user.email }).skip((page-1)*limit).sort({ date: -1 }).limit(limit);
+            return res.status(200).json(
+                {
+                    users : users,
+                    totalpages : totalPages
+                }
+            );
+        }
+    }
+    catch (error) 
+    {
+        console.error("Error fetching users: ", error);
+        res.status(500).json({ error: "Failed to fetch users" });
+    }
+}
+export async function getUserbyID(req, res)
+{
+    try 
+    {
+        const userID = req.params.id || ""
+        console.log("user id: ", userID);
+        if(!userID)
+        {
+            return res.status(404).json({ error: "Please provide valid userID." });
+        }
+        if (!req.user) 
+        {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view users." });
+        }
+        if(isAdmin(req)) 
+        {
+            const user = await User.findOne({ _id: userID});
+            return res.status(200).json(user)
+        } 
+        else
+        {
+            return res.status(401).json({ error: "Unauthorized, Only Admins can view users." });
+        }
+    } 
+    catch (error) 
+    {
+        console.error("Error fetching user: ", error);
+        res.status(500).json({ error: "Failed to fetch user" });
+    }
+    
+}
+
+export async function updateuser(req, res) 
+{
+    try 
+    {
+        const { phoneNumber, role, isBlocked, profileImage } = req.body;
+        console.log("req.body : ", req.body)
+        if (!req.user) 
+        {
+            return res.status(401).json({ error: "Unauthorized, Please log in to update user data." });
+        }
+        if(isAdmin(req)) 
+        {
+            if (!phoneNumber || !role || isBlocked === undefined) 
+                {
+                    return res.status(400).json({ error: "phoneNumber, role, isBlocked, All fields are required" });
+                }
+            const us = await User.updateOne({ email: req.body.email }, { $set: 
+            { 
+                phoneNumber: req.body.phoneNumber, 
+                role: req.body.role,
+                isBlocked: req.body.isBlocked,
+                profileImage : req.body.profileImage 
+            }
+        });
+        return res.status(200).json({ status: "Success", user: us});
+        } 
+        else
+        {
+            return res.status(401).json({ error: "Unauthorized, Only Admins can Update users." });
+        }  
+    } 
+    catch (error) 
+    {
+        
+    }
+}
