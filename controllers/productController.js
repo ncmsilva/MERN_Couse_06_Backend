@@ -37,6 +37,43 @@ export async function getAllProducts(req, res) {
     }
 }
 
+export async function getAllProductsWithPaging(req, res) {
+    try {
+        const page = parseInt(req.params.page) || 1
+        const limit = parseInt(req.params.limit) || 10
+        console.log("Page : ", page, " limit : ", limit)
+
+        if (isAdmin(req)) {
+
+            const productCount = await Product.countDocuments();
+            const totalPages = Math.ceil(productCount/limit)
+            const products = await Product.find().skip((page-1)*limit).sort({ createdAt: 1 }).limit(limit);
+            return res.status(200).json(
+                {
+                    products : products,
+                    totalpages : totalPages
+                }
+            );
+        }
+        else {
+            console.log("Fetching available products for non-admin user");
+            const productCount = await Product.countDocuments({ isAvailable: true });
+            const totalPages = Math.ceil(productCount/limit)
+            const products = await Product.find({ isAvailable: true }).skip((page-1)*limit).sort({ createdAt: 1 }).limit(limit);
+            return res.status(200).json(
+                {
+                    products : products,
+                    totalpages : totalPages
+                }
+            );
+        }
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch products" });
+        console.log("Error fetching products: ", error);
+    }
+}
+
 export async function deleteProduct(req, res) {
     const productId = req.params.productID;
 
@@ -115,7 +152,7 @@ export async function searchProducts(req, res) {
                         $or: 
                             [
                                 { name: { $regex: query, $options: "i" } },
-                                { altName: { $elemMatch: { $regex: query, $options: "i" } } }                            
+                                { altName: { $regex: query, $options: "i" } }                           
                             ]
                     },
                     { isAvailable: true }
@@ -123,6 +160,54 @@ export async function searchProducts(req, res) {
             });           
         if (products) {
             res.status(200).json(products);
+        } else {
+            res.status(404).json({ error: "Products not found" });
+        }
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch product" });
+        console.log("Error fetching product: ", error);
+    }
+}
+
+export async function searchProductsWithPaging(req, res) {
+    const query = req.params.query;
+    const page = parseInt(req.params.page) || 1
+    const limit = parseInt(req.params.limit) || 10
+    console.log("Page : ", page, " limit : ", limit)
+    try 
+    {
+        const productCount = await Product.countDocuments({ 
+                $and: 
+                [   
+                    {
+                        $or: 
+                            [
+                                { name: { $regex: query, $options: "i" } },
+                                { altName: { $regex: query, $options: "i" } }                           
+                            ]
+                    },
+                    { isAvailable: true }
+                ]
+            });
+        console.log("Total matching products : ", productCount)
+        const totalPages = Math.ceil(productCount/limit)
+        const products = await Product.find(
+            { 
+                $and: 
+                [   
+                    {
+                        $or: 
+                            [
+                                { name: { $regex: query, $options: "i" } },
+                                { altName: { $regex: query, $options: "i" } }                           
+                            ]
+                    },
+                    { isAvailable: true }
+                ]
+            }).skip((page-1)*limit).sort({ createdAt: 1 }).limit(limit);;           
+        if (products) {
+            res.status(200).json({products: products, totalpages: totalPages});
         } else {
             res.status(404).json({ error: "Products not found" });
         }

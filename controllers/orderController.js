@@ -164,7 +164,189 @@ export async function getOrdersWithPagination(req, res)
         res.status(500).json({ error: "Failed to fetch orders" });
     }
 }
-export async function updateOrder()
+export async function getOrdersByID(req, res) 
 {
-    
+    try 
+    {
+        const orderID = req.params.id || ""
+        console.log("order id: ", orderID);
+        if(!orderID)
+        {
+            return res.status(400).json({ error: "Please provide valid userID." });
+        }
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view orders." });
+        }
+        if(isAdmin(req)) {
+            const order = await Order.findOne({orderID : orderID});
+            return res.status(200).json(order);
+        }
+        else
+        {
+            const order = await Order.findOne({orderID : orderID, email: req.user.email});
+            if(order == null)
+            {
+                return res.status(401).json({ error: "Unauthorized, You can view only your orders." });
+            }
+            else
+            {
+                console.log("Order found : ", order);
+                return res.status(200).json(order);
+            }
+            
+        }
+    }
+    catch (error) 
+    {
+        console.error("Error fetching orders: ", error);
+        res.status(500).json({ error: "Failed to fetch orders" });
+    }
+}
+export async function orderStateChange(req, res)
+{
+    try 
+    {
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view orders." });
+        }
+        if(isAdmin(req)) {
+            const order = await Order.findOne({orderID : req.body.orderID});
+            let nextStage = "pending"
+            switch(order.status)
+            {
+                case "pending":
+                    nextStage = "confirmed"
+                    break
+                case "confirmed":
+                    nextStage = "shipped"
+                    break
+                case "shipped":
+                    nextStage = "delivered"
+                    break
+                case "delivered":
+                    nextStage = "delivered"
+                    break
+                case "cancelled":
+                    nextStage = "cancelled"
+                    break
+                default :
+                    nextStage = "cancelled"
+                    break
+            }
+            const us = await Order.updateOne({ orderID : req.body.orderID }, { $set: 
+            { 
+                status: nextStage, 
+                note: req.body.note
+            }})
+            return res.status(200).json({Status: "Order stage has been updated."});
+        }
+        else
+        {
+            return res.status(401).json({ error: "Unauthorized, Only Admins can change order stages." });
+        }
+    } 
+    catch (error) 
+    {
+        console.error("Error updating order stage : ", error);
+        res.status(500).json({ error: "Failed to update order stage" });
+    }
+}
+export async function orderCancel(req, res)
+{
+    try 
+    {
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view orders." });
+        }
+        if(isAdmin(req)) { 
+            const order = await Order.findOne({orderID : req.body.orderID});  
+            if(order.status === "pending")   
+            {
+                const us = await Order.updateOne({ orderID : req.body.orderID }, { $set: 
+                { 
+                    status: "cancelled", 
+                    note: req.body.note
+                }})
+                return res.status(200).json({Status: "Order has been canceled."});
+            }
+            else
+            {
+                return res.status(400).json({Status: "Order can't be canceled after confirmed."});
+            }
+        }
+        else
+        {
+            const order = await Order.findOne({orderID : req.body.orderID, email: req.user.email});  
+            if(order == null)
+            {
+                return res.status(401).json({ error: "Unauthorized, You can view only your orders." });
+            }
+            else
+            {
+                console.log("Order found : ", order);
+                if(order.status === "pending")   
+                {
+                    const us = await Order.updateOne({ orderID : req.body.orderID }, { $set: 
+                    { 
+                        status: "cancelled", 
+                        note: req.body.note
+                    }})
+                    return res.status(200).json({Status: "Order has been canceled."});
+                }
+                else
+                {
+                    return res.status(400).json({Status: "Order can't be canceled after confirmed."});
+                }
+            }
+            
+            return res.status(401).json({ error: "Unauthorized, Only Admins can change order stages." });
+        }
+    } 
+    catch (error) 
+    {
+        console.error("Error updating order stage : ", error);
+        res.status(500).json({ error: "Failed to update order stage" });
+    }
+}
+export async function OrderChartUser(req, res) {
+    try 
+    {
+        console.log("OrderChartUser starting................" , req.user)
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized, Please log in to view chart." });
+        }
+        if(isAdmin(req)) 
+        {
+            console.log("Admin user...............")
+            const data = await Order.aggregate([
+            { $match: { status: { $ne: "cancelled" } } }, // exclude cancelled
+            {
+                $group: {
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }, // group by date
+                count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } } // sort by date ascending
+            ]);
+            res.status(200).json(data);
+        }
+        else
+        {
+            console.log("non Admin user...............")
+            const data = await Order.aggregate([
+            { $match: { status: { $ne: "cancelled" }, email : req.user.email } }, // exclude cancelled
+            {
+                $group: {
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }, // group by date
+                count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } } // sort by date ascending
+            ]);
+            res.status(200).json(data);
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server Error" });
+    }
 }

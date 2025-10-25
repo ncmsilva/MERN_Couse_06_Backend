@@ -427,7 +427,7 @@ export async function getUserbyID(req, res)
         console.log("user id: ", userID);
         if(!userID)
         {
-            return res.status(404).json({ error: "Please provide valid userID." });
+            return res.status(400).json({ error: "Please provide valid userID." });
         }
         if (!req.user) 
         {

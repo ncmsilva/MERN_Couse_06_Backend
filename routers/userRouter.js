@@ -14,11 +14,4 @@ userRouter.get('/:page/:limit', getUsersWithPagination);
 userRouter.get('/:id', getUserbyID);
 userRouter.patch("/update", updateuser);
 
-
-
-
-
-
-
-
 export default userRouter;
