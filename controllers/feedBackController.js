@@ -12,8 +12,21 @@ export async function createFeedBack(req, res)
     req.body.name = req.user.firstName + " " + req.user.lastName;
     req.body.profileImage = req.user.profileImage;
     console.log("Feedback request body: ", req.body);
-    const feedback = new Feedback(req.body);
+    
     try {
+        // Check if review already exists for this product by this user
+        const existingFeedback = await Feedback.findOne({ 
+            email: req.body.email, 
+            productId: req.body.productId 
+        });
+        
+        if (existingFeedback) {
+            return res.status(400).json({ 
+                error: "You have already submitted a review for this product." 
+            });
+        }
+        
+        const feedback = new Feedback(req.body);
         const response = await feedback.save();
         res.status(201).json({ message: "Feedback record successfully", Feedback: response });
     } catch (error) {
@@ -46,7 +59,6 @@ export async function FeedBackStateChange(req, res)
         res.status(500).json({ error: "Failed to update order stage" });
     }
 }
-
 export async function getAllFeedbacks(req, res) {
     try {
         if (!req.user) {
@@ -82,6 +94,29 @@ export async function getHighestFeedbacks(req, res) {
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch feedback" });
         console.log("Error fetching feedback: ", error);
+    }
+}
+export async function getProductFeedbacks(req, res) {
+    try 
+    {
+        const productId = req.params.productId;
+        console.log("Fetching approved feedbacks for product: ", productId);
+        
+        const feedbacks = await Feedback.find({
+            productId: productId,
+            status: "approved"
+        })
+        .sort({
+            rating: -1,      // Highest rating first
+            createdAt: -1    // Latest first for same rating
+        })
+        .limit(20);
+        
+        res.status(200).json(feedbacks);
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch product feedbacks" });
+        console.log("Error fetching product feedbacks: ", error);
     }
 }
 export async function getFeedbacksWithPagination(req, res)
