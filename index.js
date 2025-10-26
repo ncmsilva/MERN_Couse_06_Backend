@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import feedBackRouter from './routers/feedBackRouter.js';
+import wishlistRouter from './routers/wishlistRouter.js';
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ app.use("/api/v1/user", userRouter);
 app.use("/api/v1/product", productRouter);
 app.use("/api/v1/order", orderRouter);
 app.use("/api/v1/review", feedBackRouter);
+app.use("/api/v1/wishlist", wishlistRouter);
 
 
 app.listen(5005, () => {
